@@ -1,0 +1,289 @@
+// #############################################################################
+// 2021/1/12
+// Aim: Using MODIS active fire location to pruduce raterisized fire location
+// Contact: Zhihua Liu, liuzh811@126.com
+// Description: this script was used to convert MOD14ML into raster at monthly, 
+// and annual scale 
+// #############################################################################
+
+// #############################################################################
+// 1. loading prepration data
+// #############################################################################
+
+// define a recentangle [geometry] to contain the Amazon Basin
+var geometry = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-79.95853988382945, 8.96518486182235],
+          [-79.95853988382945, -18.52772674902752],
+          [-43.79154769632944, -18.52772674902752],
+          [-43.79154769632944, 8.96518486182235]]], null, false);
+
+// read into boundry shapfiles
+var boundary_style = {color: '26458d', fillColor: '00000000'};
+
+var amazon = ee.FeatureCollection('users/fireclimate/AmazonBasin');
+var country = ee.FeatureCollection('users/fireclimate/Amazoncountry');
+var brazil = country.filter(ee.Filter.eq('CNTRY_NAME', 'Brazil'));	
+
+Map.centerObject(amazon, 5);
+
+Map.addLayer(amazon, {color: '26458d', fillColor: '00000000'}, 'Amazon Boundry', false);
+Map.addLayer(brazil, {color: '26458d', fillColor: '00000000'}, 'Brazil Boundry', false);
+
+// Get information about the MODIS projection::1km resolution.
+var modisLST = ee.Image(ee.ImageCollection("MODIS/006/MOD11A1").first()).select('LST_Day_1km');
+
+var modisLSTProjection = modisLST.projection();
+print('MODIS LST projection:', modisLSTProjection);
+print('MODIS LST scale is', modisLST.projection().nominalScale());
+
+var modisLSTscale = modisLST.projection().nominalScale();
+
+// load MCD14ML data
+var fire1 = ee.FeatureCollection('users/fireclimate/AmazonOutput/mcd14ml2001_2010');
+var fire2 = ee.FeatureCollection('users/fireclimate/AmazonOutput/mcd14ml2011_2019');
+
+var fire = fire1.merge(fire2);
+print(fire.first().getInfo());
+
+Map.addLayer(fire.filter(ee.Filter.eq('Year', 2010)),{}, 'fire locations 2001-2010', false);
+
+
+// #############################################################################
+// Active fire
+// 2. produce monthly burned area using 80% threshold
+// #############################################################################
+
+var years=[2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019];
+var thds = [30,50,80];
+
+for (var y=0; y <19; y++){
+var year=years[y];
+// var year = 2010;
+  print('year == ', year);
+
+  var fire0 = fire.filter(ee.Filter.gte('conf', thds[2]));
+  var points0 = fire0.filter(ee.Filter.eq('Year', year));
+
+  print('# of points:', points0.size());
+  
+  var months = ee.List.sequence(1,12);
+  var activefire_mon = months.map(function(m){
+  var points = points0.filter(ee.Filter.eq('Mon', m));
+  ///// convert points into raster
+  // add dummy property to use for reduceToImage
+  points = ee.FeatureCollection(points).map(function(feature){
+    return feature.set('dummy',1);
+  });
+  
+  // specify scale in meters to project point Image to
+  var ptScale = ee.Number(modisLSTscale);
+  
+  // convert featureCollection to Image and add geoinformation
+  var ptImg = points.reduceToImage(['dummy'],ee.Reducer.firstNonNull())
+    .unmask(0) // take into account areas without points for reduction
+    //.reproject('epsg:4326',null,ptScale);
+  .reproject('SR-ORG:6974',null,ptScale);
+  // specify output scale, in this case 1km
+  var outScale = ee.Number(modisLSTscale);
+  
+  // reduce resolution of Image and reproject from ptScale to outScale and clip to polygon
+  var countImg = ptImg.reduceResolution(ee.Reducer.mean(),false,1024)
+    .reproject('SR-ORG:6974',null,outScale).clip(amazon);
+
+  return countImg;
+     
+  });
+  
+  var activefire_mon_col=ee.ImageCollection(activefire_mon).toBands();
+  
+  var nameOfBands_old = ee.List(activefire_mon_col.bandNames().getInfo());
+  var nameOfBands_new = ["BA" + year+"01","BA" + year+"02","BA" + year+"03",
+                         "BA" + year+"04","BA" + year+"05","BA" + year+"06",
+                         "BA" + year+"07","BA" + year+"08","BA" + year+"09",
+                         "BA" + year+"10","BA" + year+"11","BA" + year+"12"];
+  
+  var activefire_mon_col2 = activefire_mon_col.select(
+     nameOfBands_old, // old names
+    nameOfBands_new  // # new names
+  );
+  
+  var activefire_mon_col3 = activefire_mon_col2.gt(0).toByte().selfMask();
+  print("activefire_mon_col",activefire_mon_col3);
+  
+  var assetId = 'active_fire_monthy_thd80_' + year; 
+  
+  // Export the image to an Earth Engine asset.
+  Export.image.toAsset({
+    image: activefire_mon_col3,
+    description: assetId, 
+    assetId: "AmazonOutput/"+assetId,
+    scale: 926.6254330555,
+    region: geometry, 
+   // crs: 'EPSG:5070', 
+    maxPixels: 1e13,
+  //  region: region.geometry().bounds(),
+  pyramidingPolicy: {
+      'exportImg_mean': 'mean',
+      'exportImg_sample': 'sample',
+      'exportImg_max': 'max'
+    }
+  });  
+  
+}
+
+// #############################################################################
+// Active fire
+// 3. produce annual burned area using 80% threshod
+// #############################################################################
+
+ for (var y=0; y <3; y++){
+  // var y = 0;
+  var thd=thds[y];
+  // var year = 2010;
+  var years = ee.List.sequence(2001,2019);
+  var activefire_annual = years.map(function(yr){
+  ///// convert points into raster
+  // add dummy property to use for reduceToImage
+  var fire0 = fire.filter(ee.Filter.gte('conf', thd));
+  var points = fire0.filter(ee.Filter.eq('Year', yr));
+  points = ee.FeatureCollection(points).map(function(feature){
+    return feature.set('dummy',1);
+  });
+  
+  // specify scale in meters to project point Image to
+  var ptScale = ee.Number(modisLSTscale);
+  
+  // convert featureCollection to Image and add geoinformation
+  var ptImg = points.reduceToImage(['dummy'],ee.Reducer.firstNonNull())
+    .unmask(0) // take into account areas without points for reduction
+    //.reproject('epsg:4326',null,ptScale);
+  .reproject('SR-ORG:6974',null,ptScale);
+  // specify output scale, in this case 1km
+  var outScale = ee.Number(modisLSTscale);
+  
+  // reduce resolution of Image and reproject from ptScale to outScale and clip to polygon
+  var countImg = ptImg.reduceResolution(ee.Reducer.mean(),false,1024)
+    .reproject('SR-ORG:6974',null,outScale).clip(amazon);
+
+  return countImg;
+     
+  });
+  
+  var activefire_annual_col=ee.ImageCollection(activefire_annual).toBands();
+  
+  var nameOfBands_old = ee.List(activefire_annual_col.bandNames().getInfo());
+  var nameOfBands_new = ["BA2001","BA2002","BA2003","BA2004", "BA2005","BA2006",
+                         "BA2007","BA2008","BA2009","BA2010","BA2011","BA2012","BA2013","BA2014","BA2015",
+                         "BA2016","BA2017","BA2018","BA2019"];
+  
+  var activefire_annual_col = activefire_annual_col.select(
+     nameOfBands_old, // old names
+    nameOfBands_new  // # new names
+  );
+  
+  var activefire_annual_col = activefire_annual_col.gt(0).toByte().selfMask();
+  print("activefire_annual_col",activefire_annual_col);
+  
+  var assetId = 'activefire_annual_thd' + thd; 
+  
+  // Export the image to an Earth Engine asset.
+  Export.image.toAsset({
+    image: activefire_annual_col,
+    description: assetId, 
+    assetId: "AmazonOutput/"+assetId,
+    scale: 926.6254330555,
+    region: geometry, 
+   // crs: 'EPSG:5070', 
+    maxPixels: 1e13,
+  //  region: region.geometry().bounds(),
+  pyramidingPolicy: {
+      'exportImg_mean': 'mean',
+      'exportImg_sample': 'sample',
+      'exportImg_max': 'max'
+    }
+  });  
+  
+ };
+
+// #############################################################################
+// Active fire
+// 4. produce annual burned area using 80% threshod
+// i.e., [2002 = fire in 2001; 2003 = 2001-2002; 2004 = 2001-2003, 2019 = 2001-2018]
+// #############################################################################
+
+ for (var y=0; y <3; y++){
+  // var y = 0;
+  var thd=thds[y];
+  // var year = 2010;
+  var years = ee.List.sequence(2002,2019);
+  var activefire_annual = years.map(function(yr){
+  ///// convert points into raster
+  // add dummy property to use for reduceToImage
+  var fire0 = fire.filter(ee.Filter.gte('conf', thd));
+  var points = fire0.filter(ee.Filter.lt('Year', yr));
+  points = ee.FeatureCollection(points).map(function(feature){
+    return feature.set('dummy',1);
+  });
+  
+  // specify scale in meters to project point Image to
+  var ptScale = ee.Number(modisLSTscale);
+  
+  // convert featureCollection to Image and add geoinformation
+  var ptImg = points.reduceToImage(['dummy'],ee.Reducer.firstNonNull())
+    .unmask(0) // take into account areas without points for reduction
+    //.reproject('epsg:4326',null,ptScale);
+  .reproject('SR-ORG:6974',null,ptScale);
+  // specify output scale, in this case 1km
+  var outScale = ee.Number(modisLSTscale);
+  
+  // reduce resolution of Image and reproject from ptScale to outScale and clip to polygon
+  var countImg = ptImg.reduceResolution(ee.Reducer.mean(),false,1024)
+    .reproject('SR-ORG:6974',null,outScale).clip(amazon);
+
+  return countImg;
+     
+  });
+ 
+  var activefire_annual_col=ee.ImageCollection(activefire_annual).toBands();
+  
+  var nameOfBands_old = ee.List(activefire_annual_col.bandNames().getInfo());
+  var nameOfBands_new = ["BA2002","BA2003","BA2004", "BA2005","BA2006",
+                         "BA2007","BA2008","BA2009","BA2010","BA2011","BA2012","BA2013","BA2014","BA2015",
+                         "BA2016","BA2017","BA2018","BA2019"];
+  
+  var activefire_annual_col = activefire_annual_col.select(
+     nameOfBands_old, // old names
+    nameOfBands_new  // # new names
+  );
+  
+  var activefire_annual_col = activefire_annual_col.gt(0).toByte().selfMask();
+  print("activefire_annual_col",activefire_annual_col);
+  
+  var assetId = 'activefire_annual_comulative_thd' + thd; 
+  
+  // Export the image to an Earth Engine asset.
+  Export.image.toAsset({
+    image: activefire_annual_col,
+    description: assetId, 
+    assetId: "AmazonOutput/"+assetId,
+    scale: 926.6254330555,
+    region: geometry, 
+   // crs: 'EPSG:5070', 
+    maxPixels: 1e13,
+  //  region: region.geometry().bounds(),
+  pyramidingPolicy: {
+      'exportImg_mean': 'mean',
+      'exportImg_sample': 'sample',
+      'exportImg_max': 'max'
+    }
+  });  
+  
+ };
+

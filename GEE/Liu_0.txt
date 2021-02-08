@@ -1,0 +1,10 @@
+1. using MODIS BA data to produce annual burned forest layers and summaries
+https://code.earthengine.google.com/b2a5598734548abdf7007278868fbb61
+2. using MODIS BA data to produce monthly burned forest summaries
+https://code.earthengine.google.com/33a408f006c9c773e79dbfc7b777ffdc
+3. convert MODIS active fire data (MCD14ML) to raster layers
+https://code.earthengine.google.com/dfcb82d99cb28dcc33ad7f98e517161d
+4. using MODIS active fire data to produce annual burned forest layers and summaries
+https://code.earthengine.google.com/f8e91435f20f143cb317693dd548370d
+5. using MODIS active fire data to produce monthly burned forest summaries
+https://code.earthengine.google.com/520b3c0117b2bd24286c15d2f90b782d

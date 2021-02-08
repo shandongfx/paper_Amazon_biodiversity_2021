@@ -1,0 +1,750 @@
+// #############################################################################
+// 2021/1/12
+// Aim: Producing MONTHLY burned forest using MODIS BA data
+// Contact: Zhihua Liu, liuzh811@126.com
+// #############################################################################
+
+// #############################################################################
+// 1. loading prepration data
+// #############################################################################
+
+// define a recentangle [geometry] to contain the Amazon Basin
+var geometry = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-79.95853988382945, 8.96518486182235],
+          [-79.95853988382945, -18.52772674902752],
+          [-43.79154769632944, -18.52772674902752],
+          [-43.79154769632944, 8.96518486182235]]], null, false);
+
+// read into amzaon boundry shapfile as amazonia_basin
+var amazon = ee.FeatureCollection('users/fireclimate/AmazonBasin');
+
+var country = ee.FeatureCollection('users/fireclimate/Amazoncountry');
+var amazon_country = country.filter(ee.Filter.bounds(amazon));	
+
+// Get information about the MODIS projection.
+var modisBA = ee.Image(ee.ImageCollection('MODIS/006/MCD64A1').first())
+    .select('BurnDate');
+ 
+var modisBAProjection = modisBA.projection();
+print('MODIS BA projection:', modisBAProjection);
+print('MODIS BA scale is', modisBA.projection().nominalScale());
+
+var modisBAscale = modisBA.projection().nominalScale();
+
+Map.centerObject(amazon_country, 5);
+Map.addLayer(amazon_country, {color: 'FF0000'}, 'colored', false);
+Map.addLayer(amazon);
+
+var brazil = country.filter(ee.Filter.eq('CNTRY_NAME', 'Brazil'));	
+Map.addLayer(brazil, {color: 'FF0000'}, 'colored', false);
+
+// Create an empty image into which to paint the features, cast to byte.
+var empty = ee.Image().byte();
+
+// Paint all the polygon edges with the same number and width, display.
+var outline = empty.paint({
+  featureCollection: amazon,
+  color: 1,
+  width: 3
+});
+Map.addLayer(outline, {palette: 'FF0000'}, 'edges');
+
+// #############################################################################
+// 2. load MODIS active fire data:: monthly
+// #############################################################################
+var MODBA_annual_2001 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2001");
+var MODBA_annual_2002 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2002");
+var MODBA_annual_2003 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2003");
+var MODBA_annual_2004 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2004");
+var MODBA_annual_2005 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2005");
+var MODBA_annual_2006 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2006");
+var MODBA_annual_2007 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2007");
+var MODBA_annual_2008 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2008");
+var MODBA_annual_2009 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2009");
+var MODBA_annual_2010 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2010");
+var MODBA_annual_2011 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2011");
+var MODBA_annual_2012 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2012");
+var MODBA_annual_2013 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2013");
+var MODBA_annual_2014 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2014");
+var MODBA_annual_2015 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2015");
+var MODBA_annual_2016 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2016");
+var MODBA_annual_2017 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2017");
+var MODBA_annual_2018 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2018");
+var MODBA_annual_2019 = ee.Image("users/fireclimate/AmazonOutput/active_fire_monthy_thd80_2019");
+
+ // calculate newly burned area [2002-2019]
+var activefire_annual_comulative = ee.Image("users/fireclimate/AmazonOutput/activefire_annual_comulative_thd80");
+
+var MODBA_annual_newly_2002 = MODBA_annual_2002.where(activefire_annual_comulative.select("BA2002").eq(1),0);
+var MODBA_annual_newly_2003 = MODBA_annual_2003.where(activefire_annual_comulative.select("BA2003").eq(1),0);
+var MODBA_annual_newly_2004 = MODBA_annual_2004.where(activefire_annual_comulative.select("BA2004").eq(1),0);
+var MODBA_annual_newly_2005 = MODBA_annual_2005.where(activefire_annual_comulative.select("BA2005").eq(1),0);
+var MODBA_annual_newly_2006 = MODBA_annual_2006.where(activefire_annual_comulative.select("BA2006").eq(1),0);
+var MODBA_annual_newly_2007 = MODBA_annual_2007.where(activefire_annual_comulative.select("BA2007").eq(1),0);
+var MODBA_annual_newly_2008 = MODBA_annual_2008.where(activefire_annual_comulative.select("BA2008").eq(1),0);
+var MODBA_annual_newly_2009 = MODBA_annual_2009.where(activefire_annual_comulative.select("BA2009").eq(1),0);
+var MODBA_annual_newly_2010 = MODBA_annual_2010.where(activefire_annual_comulative.select("BA2010").eq(1),0);
+var MODBA_annual_newly_2011 = MODBA_annual_2011.where(activefire_annual_comulative.select("BA2011").eq(1),0);
+var MODBA_annual_newly_2012 = MODBA_annual_2012.where(activefire_annual_comulative.select("BA2012").eq(1),0);
+var MODBA_annual_newly_2013 = MODBA_annual_2013.where(activefire_annual_comulative.select("BA2013").eq(1),0);
+var MODBA_annual_newly_2014 = MODBA_annual_2014.where(activefire_annual_comulative.select("BA2014").eq(1),0);
+var MODBA_annual_newly_2015 = MODBA_annual_2015.where(activefire_annual_comulative.select("BA2015").eq(1),0);
+var MODBA_annual_newly_2016 = MODBA_annual_2016.where(activefire_annual_comulative.select("BA2016").eq(1),0);
+var MODBA_annual_newly_2017 = MODBA_annual_2017.where(activefire_annual_comulative.select("BA2017").eq(1),0);
+var MODBA_annual_newly_2018 = MODBA_annual_2018.where(activefire_annual_comulative.select("BA2018").eq(1),0);
+var MODBA_annual_newly_2019 = MODBA_annual_2019.where(activefire_annual_comulative.select("BA2019").eq(1),0);
+
+
+// #############################################################################
+// 3. processing MODIS tree cover data::MOD44
+// #############################################################################
+
+var mod44 = ee.ImageCollection("MODIS/006/MOD44B").select('Percent_Tree_Cover');
+var mod44 = mod44.toBands().clip(geometry).unmask();
+
+var mod44_500m = mod44.unmask()
+    // Force the next reprojection to aggregate instead of resampling.
+    .reduceResolution({
+      reducer: ee.Reducer.mean(),
+      maxPixels: 1024
+    })
+    // Request the data at the scale and projection of the MODIS image.
+    .reproject({
+      crs: modisBAProjection
+    });
+
+// #############################################################################
+// 4. processing global forest cover change data 
+// #############################################################################
+
+var dataset = ee.Image('UMD/hansen/global_forest_change_2019_v1_7'); // geometry is rect shape bigger than amazon
+
+// Subset the loss year layer; make units absolute (instead of years since 2000). 
+var treecover = dataset.select('treecover2000').clip(geometry);
+var treeloss = dataset.select('lossyear').add(2000).clip(geometry);
+
+// calculate % of tree loss at 500m resolution
+var treeloss2001 = treeloss.eq(2001).unmask().rename('treeloss2001');
+var treeloss2002 = treeloss.eq(2002).unmask().rename('treeloss2002');
+var treeloss2003 = treeloss.eq(2003).unmask().rename('treeloss2003');
+var treeloss2004 = treeloss.eq(2004).unmask().rename('treeloss2004');
+var treeloss2005 = treeloss.eq(2005).unmask().rename('treeloss2005');
+var treeloss2006 = treeloss.eq(2006).unmask().rename('treeloss2006');
+var treeloss2007 = treeloss.eq(2007).unmask().rename('treeloss2007');
+var treeloss2008 = treeloss.eq(2008).unmask().rename('treeloss2008');
+var treeloss2009 = treeloss.eq(2009).unmask().rename('treeloss2009');
+var treeloss2010 = treeloss.eq(2010).unmask().rename('treeloss2010');
+var treeloss2011 = treeloss.eq(2011).unmask().rename('treeloss2011');
+var treeloss2012 = treeloss.eq(2012).unmask().rename('treeloss2012');
+var treeloss2013 = treeloss.eq(2013).unmask().rename('treeloss2013');
+var treeloss2014 = treeloss.eq(2014).unmask().rename('treeloss2014');
+var treeloss2015 = treeloss.eq(2015).unmask().rename('treeloss2015');
+var treeloss2016 = treeloss.eq(2016).unmask().rename('treeloss2016');
+var treeloss2017 = treeloss.eq(2017).unmask().rename('treeloss2017');
+var treeloss2018 = treeloss.eq(2018).unmask().rename('treeloss2018');
+var treeloss2019 = treeloss.eq(2019).unmask().rename('treeloss2019');
+
+var treeloss_annual = ee.Image([treeloss2001, treeloss2002, treeloss2003, treeloss2004, treeloss2005, 
+                           treeloss2006, treeloss2007, treeloss2008, treeloss2009,
+                           treeloss2010, treeloss2011, treeloss2012, treeloss2013, treeloss2014, treeloss2015, 
+                           treeloss2016, treeloss2017, treeloss2018, treeloss2019]);
+
+var treeloss_500m = treeloss_annual.unmask()
+    // Force the next reprojection to aggregate instead of resampling.
+    .reduceResolution({
+      reducer: ee.Reducer.mean(),
+      maxPixels: 1024
+    })
+    // Request the data at the scale and projection of the MODIS image.
+    .reproject({
+      crs: modisBAProjection
+    });
+
+
+// #############################################################################
+// 5. update forest cover % [if this year tree loss % > last year tree cover, replace last year tree cover with this year tree loss]
+// There are situations where forest loss % (this year) is larger than forest cover %(last year) . 
+// In such cases, overwrite tree cover by tree loss, i.e. increase tree cover
+// -Why? we used hansen 30m forest loss, because we believe it is more accurate than [modis 250m forest % change]
+// -we quantify how much has increased, so we can say it is a relatively small number.
+
+// #############################################################################
+
+
+var nameOfBands_treeover = ee.List(mod44_500m.bandNames().getInfo());
+var mod44_500m_0018 = mod44_500m.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); 
+
+var treeloss_500m2 = treeloss_500m.multiply(100);
+var mod44_500m_0018_2 = mod44_500m_0018.where(treeloss_500m2.gt(mod44_500m_0018), treeloss_500m2); 
+
+// mod44_500m2 is updated forest cover
+var mod44_500m2 = mod44_500m_0018_2.addBands(mod44_500m.select('2019_03_06_Percent_Tree_Cover')); 
+
+////////////////////////////////////////////////////////////////////////////
+// newly burned 2001-2019 [BA 2001-2019; Tree cover 2000-2018]
+var mod44_500m2_thd60 = mod44_500m2.where(mod44_500m2.lt(60), 0);
+
+// select 2000-2018 from MODIS tree cover forest 
+var FireImpact_new_2001 = MODBA_annual_2001.multiply(mod44_500m2_thd60.select("2000_03_05_Percent_Tree_Cover"));
+
+var FireImpact_new_2002 = MODBA_annual_newly_2002.multiply(mod44_500m2_thd60.select("2001_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2003 = MODBA_annual_newly_2003.multiply(mod44_500m2_thd60.select("2002_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2004 = MODBA_annual_newly_2004.multiply(mod44_500m2_thd60.select("2003_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2005 = MODBA_annual_newly_2005.multiply(mod44_500m2_thd60.select("2004_03_05_Percent_Tree_Cover"));
+var FireImpact_new_2006 = MODBA_annual_newly_2006.multiply(mod44_500m2_thd60.select("2005_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2007 = MODBA_annual_newly_2007.multiply(mod44_500m2_thd60.select("2006_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2008 = MODBA_annual_newly_2008.multiply(mod44_500m2_thd60.select("2007_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2009 = MODBA_annual_newly_2009.multiply(mod44_500m2_thd60.select("2008_03_05_Percent_Tree_Cover"));
+var FireImpact_new_2010 = MODBA_annual_newly_2010.multiply(mod44_500m2_thd60.select("2009_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2011 = MODBA_annual_newly_2011.multiply(mod44_500m2_thd60.select("2010_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2012 = MODBA_annual_newly_2012.multiply(mod44_500m2_thd60.select("2011_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2013 = MODBA_annual_newly_2013.multiply(mod44_500m2_thd60.select("2012_03_05_Percent_Tree_Cover"));
+var FireImpact_new_2014 = MODBA_annual_newly_2014.multiply(mod44_500m2_thd60.select("2013_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2015 = MODBA_annual_newly_2015.multiply(mod44_500m2_thd60.select("2014_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2016 = MODBA_annual_newly_2016.multiply(mod44_500m2_thd60.select("2015_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2017 = MODBA_annual_newly_2017.multiply(mod44_500m2_thd60.select("2016_03_05_Percent_Tree_Cover"));
+var FireImpact_new_2018 = MODBA_annual_newly_2018.multiply(mod44_500m2_thd60.select("2017_03_06_Percent_Tree_Cover"));
+var FireImpact_new_2019 = MODBA_annual_newly_2019.multiply(mod44_500m2_thd60.select("2018_03_06_Percent_Tree_Cover"));
+
+var FireImpact_new_newly_monthly = ee.Image([FireImpact_new_2001,FireImpact_new_2002, FireImpact_new_2003, FireImpact_new_2004, FireImpact_new_2005, 
+                           FireImpact_new_2006, FireImpact_new_2007, FireImpact_new_2008, FireImpact_new_2009,
+                           FireImpact_new_2010, FireImpact_new_2011, FireImpact_new_2012, FireImpact_new_2013, FireImpact_new_2014, FireImpact_new_2015, 
+                           FireImpact_new_2016, FireImpact_new_2017, FireImpact_new_2018, FireImpact_new_2019]);
+
+
+var FireImpact_new_newly_monthly1 = ee.Image([FireImpact_new_2001,FireImpact_new_2002, FireImpact_new_2003, FireImpact_new_2004, FireImpact_new_2005, 
+                           FireImpact_new_2006, FireImpact_new_2007, FireImpact_new_2008, FireImpact_new_2009,
+                           FireImpact_new_2010]);
+
+var FireImpact_new_newly_monthly2 = ee.Image([FireImpact_new_2011, FireImpact_new_2012, FireImpact_new_2013, FireImpact_new_2014, FireImpact_new_2015, 
+                           FireImpact_new_2016, FireImpact_new_2017, FireImpact_new_2018, FireImpact_new_2019]);
+
+var FireImpact_new_newly_monthly_summary = FireImpact_new_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: FireImpact_new_newly_monthly_summary,
+  description: "FireImpact_new_newly_monthly_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "FireImpact_new_newly_monthly_summary_af80",
+  fileFormat: "CSV"
+});
+
+
+var FireImpact_new_newly_monthly_summary_Brazil = FireImpact_new_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: FireImpact_new_newly_monthly_summary_Brazil,
+  description: "FireImpact_new_newly_monthly_summary_Brazil1",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "FireImpact_new_newly_monthly_summary_Brazil_af80",
+  fileFormat: "CSV"
+});
+  
+var FireImpact_new_newly_monthly_summary2 = FireImpact_new_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: FireImpact_new_newly_monthly_summary2,
+  description: "FireImpact_new_newly_monthly_summary2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "FireImpact_new_newly_monthly_summary2_af80",
+  fileFormat: "CSV"
+});
+
+
+var FireImpact_new_newly_monthly_summary_Brazil2 = FireImpact_new_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: FireImpact_new_newly_monthly_summary_Brazil2,
+  description: "FireImpact_new_newly_monthly_summary_Brazil12",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "FireImpact_new_newly_monthly_summary_Brazil2_af80",
+  fileFormat: "CSV"
+});
+    
+  
+// #############################################################################
+// 6. producing burned forest for different catogeries
+// #############################################################################
+  
+/* 6.1
+
+Deforest_fire_newly_500m_thd60_2002...2019.tif [2001-2019]
+
+deforestation fire
+(forest loss with burn inside thd60)
+newly BA==1
+last year forest cover >=60% &
+forest loss >0%
+sum( this year forest loss %)
+Deforest_fire_newly_500m_thd60_2002...2019.tif
+
+*/
+
+var mod44_500m2_thd60_mask = mod44_500m2_thd60.gte(60);
+
+var Deforest_fire_newly_2001 = MODBA_annual_2001.multiply(mod44_500m2_thd60_mask.select("2000_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2001'));
+
+var Deforest_fire_newly_2002 = MODBA_annual_newly_2002.multiply(mod44_500m2_thd60_mask.select("2001_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2002'));
+var Deforest_fire_newly_2003 = MODBA_annual_newly_2003.multiply(mod44_500m2_thd60_mask.select("2002_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2003'));
+var Deforest_fire_newly_2004 = MODBA_annual_newly_2004.multiply(mod44_500m2_thd60_mask.select("2003_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2004'));
+var Deforest_fire_newly_2005 = MODBA_annual_newly_2005.multiply(mod44_500m2_thd60_mask.select("2004_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2005'));
+var Deforest_fire_newly_2006 = MODBA_annual_newly_2006.multiply(mod44_500m2_thd60_mask.select("2005_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2006'));
+var Deforest_fire_newly_2007 = MODBA_annual_newly_2007.multiply(mod44_500m2_thd60_mask.select("2006_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2007'));
+var Deforest_fire_newly_2008 = MODBA_annual_newly_2008.multiply(mod44_500m2_thd60_mask.select("2007_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2008'));
+var Deforest_fire_newly_2009 = MODBA_annual_newly_2009.multiply(mod44_500m2_thd60_mask.select("2008_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2009'));
+var Deforest_fire_newly_2010 = MODBA_annual_newly_2010.multiply(mod44_500m2_thd60_mask.select("2009_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2010'));
+var Deforest_fire_newly_2011 = MODBA_annual_newly_2011.multiply(mod44_500m2_thd60_mask.select("2010_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2011'));
+var Deforest_fire_newly_2012 = MODBA_annual_newly_2012.multiply(mod44_500m2_thd60_mask.select("2011_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2012'));
+var Deforest_fire_newly_2013 = MODBA_annual_newly_2013.multiply(mod44_500m2_thd60_mask.select("2012_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2013'));
+var Deforest_fire_newly_2014 = MODBA_annual_newly_2014.multiply(mod44_500m2_thd60_mask.select("2013_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2014'));
+var Deforest_fire_newly_2015 = MODBA_annual_newly_2015.multiply(mod44_500m2_thd60_mask.select("2014_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2015'));
+var Deforest_fire_newly_2016 = MODBA_annual_newly_2016.multiply(mod44_500m2_thd60_mask.select("2015_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2016'));
+var Deforest_fire_newly_2017 = MODBA_annual_newly_2017.multiply(mod44_500m2_thd60_mask.select("2016_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2017'));
+var Deforest_fire_newly_2018 = MODBA_annual_newly_2018.multiply(mod44_500m2_thd60_mask.select("2017_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2018'));
+var Deforest_fire_newly_2019 = MODBA_annual_newly_2019.multiply(mod44_500m2_thd60_mask.select("2018_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2019'));
+
+
+var Deforest_fire_newly_monthly = ee.Image([Deforest_fire_newly_2001,Deforest_fire_newly_2002, Deforest_fire_newly_2003, Deforest_fire_newly_2004, Deforest_fire_newly_2005, 
+                           Deforest_fire_newly_2006, Deforest_fire_newly_2007, Deforest_fire_newly_2008, Deforest_fire_newly_2009,
+                           Deforest_fire_newly_2010, Deforest_fire_newly_2011, Deforest_fire_newly_2012, Deforest_fire_newly_2013, Deforest_fire_newly_2014, Deforest_fire_newly_2015, 
+                           Deforest_fire_newly_2016, Deforest_fire_newly_2017, Deforest_fire_newly_2018, Deforest_fire_newly_2019]);
+
+
+
+var Deforest_fire_newly_monthly1 = ee.Image([Deforest_fire_newly_2001,Deforest_fire_newly_2002, Deforest_fire_newly_2003, Deforest_fire_newly_2004, Deforest_fire_newly_2005, 
+                           Deforest_fire_newly_2006, Deforest_fire_newly_2007, Deforest_fire_newly_2008, Deforest_fire_newly_2009,
+                           Deforest_fire_newly_2010]);
+
+var Deforest_fire_newly_monthly2 = ee.Image([Deforest_fire_newly_2011, Deforest_fire_newly_2012, Deforest_fire_newly_2013, Deforest_fire_newly_2014, Deforest_fire_newly_2015, 
+                           Deforest_fire_newly_2016, Deforest_fire_newly_2017, Deforest_fire_newly_2018, Deforest_fire_newly_2019]);
+
+
+
+var Deforest_fire_newly_monthly_summary = Deforest_fire_newly_monthly1.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_newly_monthly_summary,
+  description: "Deforest_fire_newly_monthly_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_newly_monthly_summary_af80",
+  fileFormat: "CSV"
+});
+
+
+var Deforest_fire_newly_monthly_summary_Brazil = Deforest_fire_newly_monthly1.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_newly_monthly_summary_Brazil,
+  description: "Deforest_fire_newly_monthly_summary_Brazil",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_newly_monthly_summary_Brazil_af80",
+  fileFormat: "CSV"
+});
+
+var Deforest_fire_newly_monthly_summary2 = Deforest_fire_newly_monthly2.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_newly_monthly_summary2,
+  description: "Deforest_fire_newly_monthly_summary2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_newly_monthly_summary2_af80",
+  fileFormat: "CSV"
+});
+
+
+var Deforest_fire_newly_monthly_summary_Brazil2 = Deforest_fire_newly_monthly2.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_newly_monthly_summary_Brazil2,
+  description: "Deforest_fire_newly_monthly_summary_Brazil2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_newly_monthly_summary_Brazil2_af80",
+  fileFormat: "CSV"
+});
+
+
+
+/* 6.2 
+Deforest_fire ANNUAL
+
+Deforest_fire_newly_500m_thd60_2002...2019.tif [2001-2019]
+
+deforestation fire
+(forest loss with burn inside thd60)
+newly BA==1
+last year forest cover >=60% &
+forest loss >0%
+sum( this year forest loss %)
+Deforest_fire_newly_500m_thd60_2002...2019.tif
+
+*/
+
+var Deforest_fire_2001 = MODBA_annual_2001.multiply(mod44_500m2_thd60_mask.select("2000_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2001'));
+
+var Deforest_fire_2002 = MODBA_annual_2002.multiply(mod44_500m2_thd60_mask.select("2001_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2002'));
+var Deforest_fire_2003 = MODBA_annual_2003.multiply(mod44_500m2_thd60_mask.select("2002_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2003'));
+var Deforest_fire_2004 = MODBA_annual_2004.multiply(mod44_500m2_thd60_mask.select("2003_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2004'));
+var Deforest_fire_2005 = MODBA_annual_2005.multiply(mod44_500m2_thd60_mask.select("2004_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2005'));
+var Deforest_fire_2006 = MODBA_annual_2006.multiply(mod44_500m2_thd60_mask.select("2005_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2006'));
+var Deforest_fire_2007 = MODBA_annual_2007.multiply(mod44_500m2_thd60_mask.select("2006_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2007'));
+var Deforest_fire_2008 = MODBA_annual_2008.multiply(mod44_500m2_thd60_mask.select("2007_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2008'));
+var Deforest_fire_2009 = MODBA_annual_2009.multiply(mod44_500m2_thd60_mask.select("2008_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2009'));
+var Deforest_fire_2010 = MODBA_annual_2010.multiply(mod44_500m2_thd60_mask.select("2009_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2010'));
+var Deforest_fire_2011 = MODBA_annual_2011.multiply(mod44_500m2_thd60_mask.select("2010_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2011'));
+var Deforest_fire_2012 = MODBA_annual_2012.multiply(mod44_500m2_thd60_mask.select("2011_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2012'));
+var Deforest_fire_2013 = MODBA_annual_2013.multiply(mod44_500m2_thd60_mask.select("2012_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2013'));
+var Deforest_fire_2014 = MODBA_annual_2014.multiply(mod44_500m2_thd60_mask.select("2013_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2014'));
+var Deforest_fire_2015 = MODBA_annual_2015.multiply(mod44_500m2_thd60_mask.select("2014_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2015'));
+var Deforest_fire_2016 = MODBA_annual_2016.multiply(mod44_500m2_thd60_mask.select("2015_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2016'));
+var Deforest_fire_2017 = MODBA_annual_2017.multiply(mod44_500m2_thd60_mask.select("2016_03_05_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2017'));
+var Deforest_fire_2018 = MODBA_annual_2018.multiply(mod44_500m2_thd60_mask.select("2017_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2018'));
+var Deforest_fire_2019 = MODBA_annual_2019.multiply(mod44_500m2_thd60_mask.select("2018_03_06_Percent_Tree_Cover")).multiply(treeloss_500m.select('treeloss2019'));
+
+
+var Deforest_fire_monthly = ee.Image([Deforest_fire_2001,Deforest_fire_2002, Deforest_fire_2003, Deforest_fire_2004, Deforest_fire_2005, 
+                           Deforest_fire_2006, Deforest_fire_2007, Deforest_fire_2008, Deforest_fire_2009,
+                           Deforest_fire_2010, Deforest_fire_2011, Deforest_fire_2012, Deforest_fire_2013, Deforest_fire_2014, Deforest_fire_2015, 
+                           Deforest_fire_2016, Deforest_fire_2017, Deforest_fire_2018, Deforest_fire_2019]);
+
+
+var Deforest_fire_monthly1 = ee.Image([Deforest_fire_2001,Deforest_fire_2002, Deforest_fire_2003, Deforest_fire_2004, Deforest_fire_2005, 
+                           Deforest_fire_2006, Deforest_fire_2007, Deforest_fire_2008, Deforest_fire_2009,
+                           Deforest_fire_2010]);
+
+var Deforest_fire_monthly2 = ee.Image([Deforest_fire_2011, Deforest_fire_2012, Deforest_fire_2013, Deforest_fire_2014, Deforest_fire_2015, 
+                           Deforest_fire_2016, Deforest_fire_2017, Deforest_fire_2018, Deforest_fire_2019]);
+
+
+var Deforest_fire_monthly_summary1 = Deforest_fire_monthly1.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_monthly_summary1,
+  description: "Deforest_fire_monthly_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_monthly_summary_af80",
+  fileFormat: "CSV"
+});
+					   
+						   
+var Deforest_fire_monthly_summary2 = Deforest_fire_monthly2.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_monthly_summary2,
+  description: "Deforest_fire_monthly_summary2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_monthly_summary2_af80",
+  fileFormat: "CSV"
+});
+
+
+var Deforest_fire_monthly_summary_Brazil1 = Deforest_fire_monthly1.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_monthly_summary_Brazil1,
+  description: "Deforest_fire_monthly_summary_Brazil1",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_monthly_summary_Brazil_af80",
+  fileFormat: "CSV"
+});
+
+
+var Deforest_fire_monthly_summary_Brazil2 = Deforest_fire_monthly2.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Deforest_fire_monthly_summary_Brazil2,
+  description: "Deforest_fire_monthly_summary_Brazil2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_monthly_summary_Brazil2_af80",
+  fileFormat: "CSV"
+});
+
+
+/* 6.3 
+Degradation_fire_newly
+[LastYearCover - ThisYearloss] & ThisYear newly BA & LastYearCover> 80
+*/
+var mod44_500m2_thd80 = mod44_500m2.where(mod44_500m2.lt(80), 0);
+var mod44_500m2_thd80_0018 = mod44_500m2_thd80.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); // Select all bands except the one you wanna remove
+
+var mod44_500m2_thd80_0018_mask = mod44_500m2_thd80_0018.gte(80);
+
+var treeloss_500m2_1 = treeloss_500m2.where(mod44_500m2_thd80_0018.eq(0), 0);
+
+var treeloss_500m2_10 = mod44_500m2_thd80_0018.subtract(treeloss_500m2_1);
+
+// change name
+var oldnm = ee.List(treeloss_500m2_10.bandNames().getInfo());
+var newnm = ee.List(treeloss_500m.bandNames().getInfo());
+
+var treeloss_500m2_10 = treeloss_500m2_10.select(
+    oldnm, // old names
+    newnm  // # new names
+);
+
+var Degradation_fire_newly_2001 = MODBA_annual_2001.multiply(mod44_500m2_thd80_0018_mask.select("2000_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2001'));
+var Degradation_fire_newly_2002 = MODBA_annual_newly_2002.multiply(mod44_500m2_thd80_0018_mask.select("2001_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2002'));
+var Degradation_fire_newly_2003 = MODBA_annual_newly_2003.multiply(mod44_500m2_thd80_0018_mask.select("2002_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2003'));
+var Degradation_fire_newly_2004 = MODBA_annual_newly_2004.multiply(mod44_500m2_thd80_0018_mask.select("2003_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2004'));
+var Degradation_fire_newly_2005 = MODBA_annual_newly_2005.multiply(mod44_500m2_thd80_0018_mask.select("2004_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2005'));
+var Degradation_fire_newly_2006 = MODBA_annual_newly_2006.multiply(mod44_500m2_thd80_0018_mask.select("2005_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2006'));
+var Degradation_fire_newly_2007 = MODBA_annual_newly_2007.multiply(mod44_500m2_thd80_0018_mask.select("2006_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2007'));
+var Degradation_fire_newly_2008 = MODBA_annual_newly_2008.multiply(mod44_500m2_thd80_0018_mask.select("2007_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2008'));
+var Degradation_fire_newly_2009 = MODBA_annual_newly_2009.multiply(mod44_500m2_thd80_0018_mask.select("2008_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2009'));
+var Degradation_fire_newly_2010 = MODBA_annual_newly_2010.multiply(mod44_500m2_thd80_0018_mask.select("2009_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2010'));
+var Degradation_fire_newly_2011 = MODBA_annual_newly_2011.multiply(mod44_500m2_thd80_0018_mask.select("2010_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2011'));
+var Degradation_fire_newly_2012 = MODBA_annual_newly_2012.multiply(mod44_500m2_thd80_0018_mask.select("2011_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2012'));
+var Degradation_fire_newly_2013 = MODBA_annual_newly_2013.multiply(mod44_500m2_thd80_0018_mask.select("2012_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2013'));
+var Degradation_fire_newly_2014 = MODBA_annual_newly_2014.multiply(mod44_500m2_thd80_0018_mask.select("2013_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2014'));
+var Degradation_fire_newly_2015 = MODBA_annual_newly_2015.multiply(mod44_500m2_thd80_0018_mask.select("2014_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2015'));
+var Degradation_fire_newly_2016 = MODBA_annual_newly_2016.multiply(mod44_500m2_thd80_0018_mask.select("2015_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2016'));
+var Degradation_fire_newly_2017 = MODBA_annual_newly_2017.multiply(mod44_500m2_thd80_0018_mask.select("2016_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2017'));
+var Degradation_fire_newly_2018 = MODBA_annual_newly_2018.multiply(mod44_500m2_thd80_0018_mask.select("2017_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2018'));
+var Degradation_fire_newly_2019 = MODBA_annual_newly_2019.multiply(mod44_500m2_thd80_0018_mask.select("2018_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_10.select('treeloss2019'));
+
+var Degradation_fire_newly_monthly = ee.Image([Degradation_fire_newly_2001,Degradation_fire_newly_2002, Degradation_fire_newly_2003, Degradation_fire_newly_2004, Degradation_fire_newly_2005, 
+                           Degradation_fire_newly_2006, Degradation_fire_newly_2007, Degradation_fire_newly_2008, Degradation_fire_newly_2009,
+                           Degradation_fire_newly_2010, Degradation_fire_newly_2011, Degradation_fire_newly_2012, Degradation_fire_newly_2013, Degradation_fire_newly_2014, Degradation_fire_newly_2015, 
+                           Degradation_fire_newly_2016, Degradation_fire_newly_2017, Degradation_fire_newly_2018, Degradation_fire_newly_2019]);
+
+
+var Degradation_fire_newly_monthly1 = ee.Image([Degradation_fire_newly_2001,Degradation_fire_newly_2002, Degradation_fire_newly_2003, Degradation_fire_newly_2004, Degradation_fire_newly_2005, 
+                           Degradation_fire_newly_2006, Degradation_fire_newly_2007, Degradation_fire_newly_2008, Degradation_fire_newly_2009,
+                           Degradation_fire_newly_2010]);
+
+var Degradation_fire_newly_monthly2 = ee.Image([Degradation_fire_newly_2011, Degradation_fire_newly_2012, Degradation_fire_newly_2013, Degradation_fire_newly_2014, Degradation_fire_newly_2015, 
+                           Degradation_fire_newly_2016, Degradation_fire_newly_2017, Degradation_fire_newly_2018, Degradation_fire_newly_2019]);
+
+
+var Degradation_fire_newly_monthly_summary = Degradation_fire_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Degradation_fire_newly_monthly_summary,
+  description: "Degradation_fire_newly_monthly_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Degradation_fire_newly_monthly_summary_af80",
+  fileFormat: "CSV"
+});
+
+
+var Degradation_fire_newly_monthly_summary_Brazil = Degradation_fire_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Degradation_fire_newly_monthly_summary_Brazil,
+  description: "Degradation_fire_newly_monthly_summary_Brazil",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Degradation_fire_newly_monthly_summary_Brazil_af80",
+  fileFormat: "CSV"
+});
+
+
+var Degradation_fire_newly_monthly_summary2 = Degradation_fire_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Degradation_fire_newly_monthly_summary2,
+  description: "Degradation_fire_newly_monthly_summary2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Degradation_fire_newly_monthly_summary2_af80",
+  fileFormat: "CSV"
+});
+
+
+var Degradation_fire_newly_monthly_summary_Brazil2 = Degradation_fire_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Degradation_fire_newly_monthly_summary_Brazil2,
+  description: "Degradation_fire_newly_monthly_summary_Brazil2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Degradation_fire_newly_monthly_summary_Brazil2_af80",
+  fileFormat: "CSV"
+});
+
+
+/* 6.4 
+Disturb_fire_newly_500m_2002...2019.tif
+last year forest cover >=60% &
+< 80%
+[LastYearCover - ThisYearloss] & ThisYear newly BA & LastYearCover 60-80%
+*/
+
+var mod44_500m2_thd60_80 = mod44_500m2.where(mod44_500m2.lt(60).or(mod44_500m2.gte(80)), 0);
+var mod44_500m2_thd60_80_0018 = mod44_500m2_thd60_80.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); // Select all bands except the one you wanna remove
+
+var mod44_500m2_thd60_80_0018_mask = mod44_500m2_thd60_80_0018.gte(60).and(mod44_500m2_thd60_80_0018.lt(80));
+
+var treeloss_500m2_2 = treeloss_500m2.where(mod44_500m2_thd60_80_0018.eq(0), 0);
+
+var treeloss_500m2_20 = mod44_500m2_thd60_80_0018.subtract(treeloss_500m2_2);
+
+var treeloss_500m2_20 = treeloss_500m2_20.select(
+    oldnm, // old names
+    newnm  // # new names
+);
+
+var Disturb_fire_newly_2001 = MODBA_annual_2001.multiply(mod44_500m2_thd60_80_0018_mask.select("2000_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2001'));
+var Disturb_fire_newly_2002 = MODBA_annual_newly_2002.multiply(mod44_500m2_thd60_80_0018_mask.select("2001_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2002'));
+var Disturb_fire_newly_2003 = MODBA_annual_newly_2003.multiply(mod44_500m2_thd60_80_0018_mask.select("2002_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2003'));
+var Disturb_fire_newly_2004 = MODBA_annual_newly_2004.multiply(mod44_500m2_thd60_80_0018_mask.select("2003_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2004'));
+var Disturb_fire_newly_2005 = MODBA_annual_newly_2005.multiply(mod44_500m2_thd60_80_0018_mask.select("2004_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2005'));
+var Disturb_fire_newly_2006 = MODBA_annual_newly_2006.multiply(mod44_500m2_thd60_80_0018_mask.select("2005_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2006'));
+var Disturb_fire_newly_2007 = MODBA_annual_newly_2007.multiply(mod44_500m2_thd60_80_0018_mask.select("2006_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2007'));
+var Disturb_fire_newly_2008 = MODBA_annual_newly_2008.multiply(mod44_500m2_thd60_80_0018_mask.select("2007_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2008'));
+var Disturb_fire_newly_2009 = MODBA_annual_newly_2009.multiply(mod44_500m2_thd60_80_0018_mask.select("2008_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2009'));
+var Disturb_fire_newly_2010 = MODBA_annual_newly_2010.multiply(mod44_500m2_thd60_80_0018_mask.select("2009_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2010'));
+var Disturb_fire_newly_2011 = MODBA_annual_newly_2011.multiply(mod44_500m2_thd60_80_0018_mask.select("2010_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2011'));
+var Disturb_fire_newly_2012 = MODBA_annual_newly_2012.multiply(mod44_500m2_thd60_80_0018_mask.select("2011_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2012'));
+var Disturb_fire_newly_2013 = MODBA_annual_newly_2013.multiply(mod44_500m2_thd60_80_0018_mask.select("2012_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2013'));
+var Disturb_fire_newly_2014 = MODBA_annual_newly_2014.multiply(mod44_500m2_thd60_80_0018_mask.select("2013_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2014'));
+var Disturb_fire_newly_2015 = MODBA_annual_newly_2015.multiply(mod44_500m2_thd60_80_0018_mask.select("2014_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2015'));
+var Disturb_fire_newly_2016 = MODBA_annual_newly_2016.multiply(mod44_500m2_thd60_80_0018_mask.select("2015_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2016'));
+var Disturb_fire_newly_2017 = MODBA_annual_newly_2017.multiply(mod44_500m2_thd60_80_0018_mask.select("2016_03_05_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2017'));
+var Disturb_fire_newly_2018 = MODBA_annual_newly_2018.multiply(mod44_500m2_thd60_80_0018_mask.select("2017_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2018'));
+var Disturb_fire_newly_2019 = MODBA_annual_newly_2019.multiply(mod44_500m2_thd60_80_0018_mask.select("2018_03_06_Percent_Tree_Cover")).multiply(treeloss_500m2_20.select('treeloss2019'));
+
+var Disturb_fire_newly_monthly = ee.Image([Disturb_fire_newly_2001,Disturb_fire_newly_2002, Disturb_fire_newly_2003, Disturb_fire_newly_2004, Disturb_fire_newly_2005, 
+                           Disturb_fire_newly_2006, Disturb_fire_newly_2007, Disturb_fire_newly_2008, Disturb_fire_newly_2009,
+                           Disturb_fire_newly_2010, Disturb_fire_newly_2011, Disturb_fire_newly_2012, Disturb_fire_newly_2013, Disturb_fire_newly_2014, Disturb_fire_newly_2015, 
+                           Disturb_fire_newly_2016, Disturb_fire_newly_2017, Disturb_fire_newly_2018, Disturb_fire_newly_2019]);
+
+
+var Disturb_fire_newly_monthly1 = ee.Image([Disturb_fire_newly_2001,Disturb_fire_newly_2002, Disturb_fire_newly_2003, Disturb_fire_newly_2004, Disturb_fire_newly_2005, 
+                           Disturb_fire_newly_2006, Disturb_fire_newly_2007, Disturb_fire_newly_2008, Disturb_fire_newly_2009,
+                           Disturb_fire_newly_2010]);
+
+
+var Disturb_fire_newly_monthly2 = ee.Image([Disturb_fire_newly_2011, Disturb_fire_newly_2012, Disturb_fire_newly_2013, Disturb_fire_newly_2014, Disturb_fire_newly_2015, 
+                           Disturb_fire_newly_2016, Disturb_fire_newly_2017, Disturb_fire_newly_2018, Disturb_fire_newly_2019]);
+
+
+var Disturb_fire_newly_monthly_summary = Disturb_fire_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Disturb_fire_newly_monthly_summary,
+  description: "Disturb_fire_newly_monthly_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Disturb_fire_newly_monthly_summary_af80",
+  fileFormat: "CSV"
+});
+
+
+var Disturb_fire_newly_monthly_summary_Brazil = Disturb_fire_newly_monthly1.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Disturb_fire_newly_monthly_summary_Brazil,
+  description: "Disturb_fire_newly_monthly_summary_Brazil",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Disturb_fire_newly_monthly_summary_Brazil_af80",
+  fileFormat: "CSV"
+});
+
+var Disturb_fire_newly_monthly_summary2 = Disturb_fire_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Disturb_fire_newly_monthly_summary2,
+  description: "Disturb_fire_newly_monthly_summary2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Disturb_fire_newly_monthly_summary2_af80",
+  fileFormat: "CSV"
+});
+
+
+var Disturb_fire_newly_monthly_summary_Brazil2 = Disturb_fire_newly_monthly2.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+Export.table.toDrive({
+  collection: Disturb_fire_newly_monthly_summary_Brazil2,
+  description: "Disturb_fire_newly_monthly_summary_Brazil2",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Disturb_fire_newly_monthly_summary_Brazil2_af80",
+  fileFormat: "CSV"
+});
+
+
+
+
+

@@ -1,0 +1,676 @@
+// #############################################################################
+// 2021/1/12
+// Aim: Producing ANNUAL burned forest using MODIS active fire data
+// Contact: Zhihua Liu, liuzh811@126.com
+// #############################################################################
+
+// #############################################################################
+// 1. loading prepration data
+// #############################################################################
+
+// define a recentangle [geometry] to contain the Amazon Basin
+var geometry = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-79.95853988382945, 8.96518486182235],
+          [-79.95853988382945, -18.52772674902752],
+          [-43.79154769632944, -18.52772674902752],
+          [-43.79154769632944, 8.96518486182235]]], null, false);
+
+// read into boundry shapfile
+var boundary_style = {color: '26458d', fillColor: '00000000'};
+
+var amazon = ee.FeatureCollection('users/fireclimate/AmazonBasin');
+var country = ee.FeatureCollection('users/fireclimate/Amazoncountry');
+var brazil = country.filter(ee.Filter.eq('CNTRY_NAME', 'Brazil'));	
+
+Map.centerObject(amazon, 5);
+
+Map.addLayer(amazon, {color: '26458d', fillColor: '00000000'}, 'Amazon Boundry', false);
+Map.addLayer(brazil, {color: '26458d', fillColor: '00000000'}, 'Brazil Boundry', false);
+
+
+// Get information about the MODIS projection.
+var modisBA = ee.Image(ee.ImageCollection('MODIS/006/MCD64A1').first())
+    .select('BurnDate');
+ 
+var modisBAProjection = modisBA.projection();
+print('MODIS BA projection:', modisBAProjection);
+print('MODIS BA scale is', modisBA.projection().nominalScale());
+
+var modisBAscale = modisBA.projection().nominalScale();
+
+// #############################################################################
+// 2. Load MODIS active fire data:: ANNUAL
+// #############################################################################
+// load annual active fire derived BA
+var MODBA_annual = ee.Image("users/fireclimate/AmazonOutput/activefire_annual_thd80");
+ // calculate newly burned area [2002-2019]
+var activefire_annual_comulative = ee.Image("users/fireclimate/AmazonOutput/activefire_annual_comulative_thd80");
+
+ // calculate newly burned area
+var Bands_new = ["BA2002","BA2003","BA2004", "BA2005","BA2006","BA2007",
+                  "BA2008","BA2009","BA2010","BA2011","BA2012","BA2013",
+                  "BA2014","BA2015","BA2016","BA2017","BA2018","BA2019"];
+  
+var MODBA_annual_newly = MODBA_annual.select(Bands_new).where(activefire_annual_comulative.eq(1),0);
+var MODBA_annual_newly = MODBA_annual.select("BA2001").addBands(MODBA_annual_newly);
+
+// #############################################################################
+// 2. processing MODIS Land cover data
+// https://lpdaac.usgs.gov/documents/101/MCD12_User_Guide_V6.pdf
+// #############################################################################
+
+var findforest = function(image) {
+  return image.updateMask(image.gte(1).and(image.lte(5)));
+};
+
+var LC = ee.ImageCollection("MODIS/006/MCD12Q1").select('LC_Type1').toBands().clip(geometry);
+var LC = LC.gte(1).and(LC.lte(5)).selfMask();
+
+// #############################################################################
+// 3. processing MODIS tree cover data::MOD44
+// #############################################################################
+
+var mod44 = ee.ImageCollection("MODIS/006/MOD44B").select('Percent_Tree_Cover');
+var mod44 = mod44.toBands().clip(geometry).unmask();
+
+var mod44_500m = mod44.unmask()
+    // Force the next reprojection to aggregate instead of resampling.
+    .reduceResolution({
+      reducer: ee.Reducer.mean(),
+      maxPixels: 1024
+    })
+    // Request the data at the scale and projection of the MODIS image.
+    .reproject({
+      crs: modisBAProjection
+    });
+
+// #############################################################################
+// 4. processing global forest cover change data 
+// #############################################################################
+ 
+var dataset = ee.Image('UMD/hansen/global_forest_change_2019_v1_7'); // geometry is rect shape bigger than amazon
+
+// Subset the loss year layer; make units absolute (instead of years since 2000). 
+var treecover = dataset.select('treecover2000').clip(geometry);
+var treeloss = dataset.select('lossyear').add(2000).clip(geometry);
+
+// calculate % of tree loss at 500m resolution
+var treeloss2001 = treeloss.eq(2001).unmask().rename('treeloss2001');
+var treeloss2002 = treeloss.eq(2002).unmask().rename('treeloss2002');
+var treeloss2003 = treeloss.eq(2003).unmask().rename('treeloss2003');
+var treeloss2004 = treeloss.eq(2004).unmask().rename('treeloss2004');
+var treeloss2005 = treeloss.eq(2005).unmask().rename('treeloss2005');
+var treeloss2006 = treeloss.eq(2006).unmask().rename('treeloss2006');
+var treeloss2007 = treeloss.eq(2007).unmask().rename('treeloss2007');
+var treeloss2008 = treeloss.eq(2008).unmask().rename('treeloss2008');
+var treeloss2009 = treeloss.eq(2009).unmask().rename('treeloss2009');
+var treeloss2010 = treeloss.eq(2010).unmask().rename('treeloss2010');
+var treeloss2011 = treeloss.eq(2011).unmask().rename('treeloss2011');
+var treeloss2012 = treeloss.eq(2012).unmask().rename('treeloss2012');
+var treeloss2013 = treeloss.eq(2013).unmask().rename('treeloss2013');
+var treeloss2014 = treeloss.eq(2014).unmask().rename('treeloss2014');
+var treeloss2015 = treeloss.eq(2015).unmask().rename('treeloss2015');
+var treeloss2016 = treeloss.eq(2016).unmask().rename('treeloss2016');
+var treeloss2017 = treeloss.eq(2017).unmask().rename('treeloss2017');
+var treeloss2018 = treeloss.eq(2018).unmask().rename('treeloss2018');
+var treeloss2019 = treeloss.eq(2019).unmask().rename('treeloss2019');
+
+var treeloss_annual = ee.Image([treeloss2001, treeloss2002, treeloss2003, treeloss2004, treeloss2005, 
+                           treeloss2006, treeloss2007, treeloss2008, treeloss2009,
+                           treeloss2010, treeloss2011, treeloss2012, treeloss2013, treeloss2014, treeloss2015, 
+                           treeloss2016, treeloss2017, treeloss2018, treeloss2019]);
+
+var treeloss_500m = treeloss_annual.unmask()
+    // Force the next reprojection to aggregate instead of resampling.
+    .reduceResolution({
+      reducer: ee.Reducer.mean(),
+      maxPixels: 1024
+    })
+    // Request the data at the scale and projection of the MODIS image.
+    .reproject({
+      crs: modisBAProjection
+    });
+
+
+
+// #############################################################################
+// 5. update forest cover % [if this year tree loss % > last year tree cover, replace last year tree cover with this year tree loss]
+// There are situations where forest loss % (this year) is larger than forest cover %(last year) . 
+// In such cases, overwrite tree cover by tree loss, i.e. increase tree cover
+// -Why? we used hansen 30m forest loss, because we believe it is more accurate than [modis 250m forest % change]
+// -we quantify how much has increased, so we can say it is a relatively small number.
+
+// #############################################################################
+
+var nameOfBands_treeover = ee.List(mod44_500m.bandNames().getInfo());
+var mod44_500m_0018 = mod44_500m.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); 
+
+var treeloss_500m2 = treeloss_500m.multiply(100);
+var mod44_500m_0018_2 = mod44_500m_0018.where(treeloss_500m2.gt(mod44_500m_0018), treeloss_500m2); 
+
+
+// mod44_500m2 is updated forest cover
+var mod44_500m2 = mod44_500m_0018_2.addBands(mod44_500m.select('2019_03_06_Percent_Tree_Cover')); 
+
+
+/* study area mask [1/0]
+Study area: inserection of (Amazon) and (any year forest % > 60% at 500m resolution across  2001-2018)
+
+*/
+var remove_list = ['2000_03_05_Percent_Tree_Cover','2019_03_06_Percent_Tree_Cover'];
+var study_area_mask = mod44_500m2.select(nameOfBands_treeover.remove(remove_list)).reduce('max').gte(60);
+
+// export study area
+  Export.image.toDrive({
+  image:study_area_mask.selfMask(), // raster file to be exported
+  description: 'Amazon_modtc500m_thd_60',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Amazon_modtc500m_thd_60', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+// study area mask for biodiviersity
+var study_area_mask2 = mod44_500m2.reduce('max');
+print(study_area_mask2);
+
+// export study area
+  Export.image.toDrive({
+  image:study_area_mask2.selfMask(), // raster file to be exported
+  description: 'Amazon_modtc500m_Percentage',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Amazon_modtc500m_Percentage', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+
+// #############################################################################
+// 6. producing burned forest for different catogeries
+// #############################################################################
+
+/* 6.1
+forest burned area: last year tree cover [2000-2018] + this year burned area [2001-2019] 
+note: this will add one more year (2001) than previous version. Drop it if you do not want to use it
+Annual BA since 2001, so burned forest area since 2001
+Newly BA since 2000
+*/
+
+var mod44_500m2_thd60 = mod44_500m2.where(mod44_500m2.lt(60), 0);
+
+// select 2000-2018 from MODIS tree cover forest 
+var mod44_500m2_thd60_0018 = mod44_500m2_thd60.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); // Select all bands except the one you wanna remove
+
+var FireImpact_new = MODBA_annual.multiply(mod44_500m2_thd60_0018);
+
+Export.image.toDrive({
+  image:FireImpact_new.toByte().selfMask(), // raster file to be exported
+  description: 'FireImpact_new',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'FireImpact_new_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+///// calculate newly burned forest [2001 - 2019, 2001 BA = all BA in 2001]
+var FireImpact_new_newly = MODBA_annual_newly.multiply(mod44_500m2_thd60_0018);
+
+Export.image.toDrive({
+  image:FireImpact_new_newly.toByte().selfMask(), // raster file to be exported
+  description: 'FireImpact_new_newly',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'FireImpact_new_newly_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.2
+calculate Deforest_fire in all area > 60
+
+Deforest_fire_newly_500m_thd60_2002...2019.tif [2001-2019]
+Condition: last year tree cover >=60 & this year BA == 1
+
+*/
+
+var mod44_500m2_thd60_0018_mask = mod44_500m2_thd60_0018.gte(60);
+var Deforest_fire_newly_thd60 = MODBA_annual_newly.multiply(mod44_500m2_thd60_0018_mask).multiply(treeloss_500m);
+
+Export.image.toDrive({
+  image:Deforest_fire_newly_thd60.multiply(100).toByte().selfMask(), // raster file to be exported
+  description: 'Deforest_fire_newly_thd60',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Deforest_fire_newly_thd60_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.3
+calculate Deforest_fire ANNUAL in all area > 60
+
+Deforest_fire_newly_500m_thd60_2001...2019.tif [2001-2019]
+Condition: last year tree cover >=60 & this year ANNUAL BA == 1 & this year tree loss == 1
+
+*/
+
+// var mod44_500m2_thd60_0018_mask = mod44_500m2_thd60_0018.gte(60);
+var Deforest_fire_thd60 = MODBA_annual.multiply(mod44_500m2_thd60_0018_mask).multiply(treeloss_500m);
+
+Export.image.toDrive({
+  image:Deforest_fire_thd60.multiply(100).toByte().selfMask(), // raster file to be exported
+  description: 'Deforest_fire_thd60_af80',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Deforest_fire_thd60_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+var Deforest_fire_thd60_summary = Deforest_fire_thd60.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+ Export.table.toDrive({
+  collection: Deforest_fire_thd60_summary,
+  description: "Deforest_fire_thd60_summary_af80",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_thd60_summary_af80",
+  fileFormat: "CSV"
+});
+
+var Deforest_fire_thd60_summary_brazil = Deforest_fire_thd60.multiply(100).toByte().clip(brazil).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+ Export.table.toDrive({
+  collection: Deforest_fire_thd60_summary_brazil,
+  description: "Deforest_fire_thd60_summary_brazil_af80",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "Deforest_fire_thd60_summary_brazil_af80",
+  fileFormat: "CSV"
+});
+
+
+
+/* 6.4
+calculate Deforest_fire in all area > 80
+
+Deforest_fire_newly_500m_thd80_2002...2019.tif [2001-2019]
+Condition: last year tree cover >=60 & this year BA == 1
+
+*/
+
+var mod44_500m2_thd80_0018_mask = mod44_500m2_thd60_0018.gte(80);
+var Deforest_fire_newly_thd80 = MODBA_annual_newly.multiply(mod44_500m2_thd80_0018_mask).multiply(treeloss_500m);
+
+Export.image.toDrive({
+  image:Deforest_fire_newly_thd80.multiply(100).toByte().selfMask(), // raster file to be exported
+  description: 'Deforest_fire_newly_thd80',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Deforest_fire_newly_thd80_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.5
+calculate Deforest_fire in all area > 80
+
+Deforest_fire_newly_500m_thd80_2002...2019.tif [2001-2019]
+Condition: last year tree cover >=60 & this year BA == 1
+
+*/
+
+var mod44_500m2_thd60_80_0018_mask = mod44_500m2_thd60_0018.lt(80).and(mod44_500m2_thd60_0018.gte(60));
+var Deforest_fire_newly_thd60_80 = MODBA_annual_newly.multiply(mod44_500m2_thd60_80_0018_mask).multiply(treeloss_500m);
+
+Export.image.toDrive({
+  image:Deforest_fire_newly_thd60_80.multiply(100).toByte().selfMask(), // raster file to be exported
+  description: 'Deforest_fire_newly_thd60_80',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Deforest_fire_newly_thd60_80_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.6
+Degradation_fire_newly
+[Last year tree cover - this year tree loss] & ThisYear newly BA & LastYearCover> 80
+*/
+
+var mod44_500m2_thd80 = mod44_500m2.where(mod44_500m2.lt(80), 0);
+var mod44_500m2_thd80_0018 = mod44_500m2_thd80.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); // Select all bands except the one you wanna remove
+
+var treeloss_500m2_1 = treeloss_500m2.where(mod44_500m2_thd80_0018.eq(0), 0);
+var Degradation_fire_newly = mod44_500m2_thd80_0018.subtract(treeloss_500m2_1);
+
+var Degradation_fire_newly0 = MODBA_annual_newly.multiply(mod44_500m2_thd80_0018_mask).multiply(Degradation_fire_newly);
+
+Export.image.toDrive({
+  image:Degradation_fire_newly0.toByte().selfMask(), // raster file to be exported
+  description: 'Degradation_fire_newly0',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Degradation_fire_newly_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.7
+Disturb_fire_newly_500m_2002...2019.tif
+last year forest cover >=60% &
+< 80%
+[LastYearCover - ThisYearloss] & ThisYear newly BA & LastYearCover 60-80%
+*/
+
+var mod44_500m2_thd60_80 = mod44_500m2.where(mod44_500m2.lt(60).or(mod44_500m2.gte(80)), 0);
+var mod44_500m2_thd60_80_0018 = mod44_500m2_thd60_80.select(nameOfBands_treeover.remove('2019_03_06_Percent_Tree_Cover')); // Select all bands except the one you wanna remove
+
+var treeloss_500m2_2 = treeloss_500m2.where(mod44_500m2_thd60_80_0018.eq(0), 0);
+var Disturb_fire_newly = mod44_500m2_thd60_80_0018.subtract(treeloss_500m2_2);
+var Disturb_fire_newly0 = MODBA_annual_newly.multiply(mod44_500m2_thd60_80_0018_mask).multiply(Disturb_fire_newly);
+
+Export.image.toDrive({
+  image:Disturb_fire_newly0.toByte().selfMask(), // raster file to be exported
+  description: 'Disturb_fire_newly',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Disturb_fire_newly_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+/* 6.8
+Tree_loss_newly_500m_thd60_2001...2019.tif [tree loss but without fire, newly]
+habitat loss1
+forest loss without burn inside thd60
+newly BA!=1
+last year forest cover >=60% &
+forest loss >0
+sum( this year forest loss %)
+Tree_loss_newly_500m_thd60_2001...2019.tif
+*/
+
+// var MODBA_annual2 = MODBA_annual.add(-1).multiply(-1); // not work, 1-not burned, 0-burned
+
+var MODBA_annual2 = MODBA_annual.unmask().add(1); // 1-not burned, 2-burned
+var MODBA_annual2 = MODBA_annual2.where(MODBA_annual2.eq(2),0); // 1-not burned, 0-burned
+
+var Tree_loss_newly = MODBA_annual2.multiply(mod44_500m2_thd60_0018_mask).multiply(treeloss_500m);
+
+Export.image.toDrive({
+  image:Tree_loss_newly.multiply(100).toByte().selfMask(), // raster file to be exported
+  description: 'Tree_loss_newly',
+  folder: 'Amazon_output2_activefire', // good drive folder name
+  fileNamePrefix: 'Tree_loss_newly_af80', // export name name
+  scale: 463.3127165275,  //resolution
+  fileFormat: 'GeoTIFF', // export format
+  maxPixels: 1e13, // can increase this to 1e15 if max is reached
+  // region: amazon.geometry().bounds() // clip the boundary
+    region: geometry
+});
+
+
+// #############################################################################
+// 7 . summary and output
+// #############################################################################
+
+// 7.1 summary for whole amazon 
+ 
+var FireImpact_new_summary = FireImpact_new.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+
+var FireImpact_new_newly_summary = FireImpact_new_newly.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+
+var Deforest_fire_newly_thd60_summary = Deforest_fire_newly_thd60.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Deforest_fire_newly_thd80_summary = Deforest_fire_newly_thd80.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Deforest_fire_newly_thd60_80_summary = Deforest_fire_newly_thd60_80.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+
+var Degradation_fire_newly_summary = Degradation_fire_newly0.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Disturb_fire_newly_summary = Disturb_fire_newly0.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Tree_loss_newly_summary = Tree_loss_newly.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: amazon,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var merged_summary = FireImpact_new_summary.merge(FireImpact_new_newly_summary).merge(Deforest_fire_newly_thd60_summary).merge(Deforest_fire_newly_thd80_summary).merge(Deforest_fire_newly_thd60_80_summary)
+                     .merge(Degradation_fire_newly_summary).merge(Disturb_fire_newly_summary).merge(Tree_loss_newly_summary);
+                     
+                     
+ Export.table.toDrive({
+  collection: merged_summary,
+  description: "merged_summary",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "merged_summary_af80",
+  fileFormat: "CSV"
+});
+
+// 7.1 summary for brazil
+                   
+var FireImpact_new_summary_brazil = FireImpact_new.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var FireImpact_new_newly_summary_brazil = FireImpact_new_newly.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+
+var Deforest_fire_newly_thd60_summary_brazil = Deforest_fire_newly_thd60.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Deforest_fire_newly_thd80_summary_brazil = Deforest_fire_newly_thd80.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Deforest_fire_newly_thd60_80_summary_brazil = Deforest_fire_newly_thd60_80.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+
+var Degradation_fire_newly_summary_brazil = Degradation_fire_newly0.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Disturb_fire_newly_summary_brazil = Disturb_fire_newly0.toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var Tree_loss_newly_summary_brazil = Tree_loss_newly.multiply(100).toByte().clip(amazon).multiply(ee.Image.pixelArea()).selfMask().reduceRegions({
+  collection: brazil,
+  reducer: ee.Reducer.sum(),
+  scale: 100,
+});
+
+var merged_summary_brazil = FireImpact_new_summary_brazil.merge(FireImpact_new_newly_summary_brazil).merge(Deforest_fire_newly_thd60_summary_brazil).merge(Deforest_fire_newly_thd80_summary_brazil).merge(Deforest_fire_newly_thd60_80_summary_brazil)
+                                           .merge(Degradation_fire_newly_summary_brazil).merge(Disturb_fire_newly_summary_brazil).merge(Tree_loss_newly_summary_brazil);
+                                           
+Export.table.toDrive({
+  collection: merged_summary_brazil,
+  description: "merged_summary_brazil",
+  folder: "Amazon_output2_activefire",
+  fileNamePrefix:  "merged_summary_brazil_af80",
+  fileFormat: "CSV"
+});
+
+
+// 7.3 calculate newly burned for each contury each year
+
+var FireImpact_new_newly2 = FireImpact_new_newly.select("BA2001").unmask()
+                        .add(FireImpact_new_newly.select("BA2002").unmask())
+                        .add(FireImpact_new_newly.select("BA2003").unmask())
+                        .add(FireImpact_new_newly.select("BA2004").unmask())
+                        .add(FireImpact_new_newly.select("BA2005").unmask())
+                        .add(FireImpact_new_newly.select("BA2006").unmask())
+                        .add(FireImpact_new_newly.select("BA2007").unmask())
+                        .add(FireImpact_new_newly.select("BA2008").unmask())
+                        .add(FireImpact_new_newly.select("BA2009").unmask())
+                        .add(FireImpact_new_newly.select("BA2010").unmask())
+                        .add(FireImpact_new_newly.select("BA2011").unmask())
+                        .add(FireImpact_new_newly.select("BA2012").unmask())
+                        .add(FireImpact_new_newly.select("BA2013").unmask())
+                        .add(FireImpact_new_newly.select("BA2014").unmask())
+                        .add(FireImpact_new_newly.select("BA2015").unmask())
+                        .add(FireImpact_new_newly.select("BA2016").unmask())
+                        .add(FireImpact_new_newly.select("BA2017").unmask())
+                        .add(FireImpact_new_newly.select("BA2018").unmask())
+                        .add(FireImpact_new_newly.select("BA2019").unmask());
+            
+var FireImpact_new_newly2_years = FireImpact_new_newly.select("BA2001").gt(0).selfMask().add(2000).unmask()
+                        .add(FireImpact_new_newly.select("BA2002").gt(0).selfMask().add(2001).unmask())
+                        .add(FireImpact_new_newly.select("BA2003").gt(0).selfMask().add(2002).unmask())
+                        .add(FireImpact_new_newly.select("BA2004").gt(0).selfMask().add(2003).unmask())
+                        .add(FireImpact_new_newly.select("BA2005").gt(0).selfMask().add(2004).unmask())
+                        .add(FireImpact_new_newly.select("BA2006").gt(0).selfMask().add(2005).unmask())
+                        .add(FireImpact_new_newly.select("BA2007").gt(0).selfMask().add(2006).unmask())
+                        .add(FireImpact_new_newly.select("BA2008").gt(0).selfMask().add(2007).unmask())
+                        .add(FireImpact_new_newly.select("BA2009").gt(0).selfMask().add(2008).unmask())
+                        .add(FireImpact_new_newly.select("BA2010").gt(0).selfMask().add(2009).unmask())
+                        .add(FireImpact_new_newly.select("BA2011").gt(0).selfMask().add(2010).unmask())
+                        .add(FireImpact_new_newly.select("BA2012").gt(0).selfMask().add(2011).unmask())
+                        .add(FireImpact_new_newly.select("BA2013").gt(0).selfMask().add(2012).unmask())
+                        .add(FireImpact_new_newly.select("BA2014").gt(0).selfMask().add(2013).unmask())
+                        .add(FireImpact_new_newly.select("BA2015").gt(0).selfMask().add(2014).unmask())
+                        .add(FireImpact_new_newly.select("BA2016").gt(0).selfMask().add(2015).unmask())
+                        .add(FireImpact_new_newly.select("BA2017").gt(0).selfMask().add(2016).unmask())
+                        .add(FireImpact_new_newly.select("BA2018").gt(0).selfMask().add(2017).unmask())
+                        .add(FireImpact_new_newly.select("BA2019").gt(0).selfMask().add(2018).unmask())
+                        .rename("lossyear");
+                        
+
+var amazon_country = country.filter(ee.Filter.bounds(amazon));	
+
+var calculateClassArea = function(feature) {
+ var areas = ee.Image.pixelArea().multiply(FireImpact_new_newly2.clip(amazon)).addBands(FireImpact_new_newly2_years)
+    .reduceRegion({
+      reducer: ee.Reducer.sum().group({
+      groupField: 1,
+      groupName: 'lossyear',
+    }),
+    geometry: feature.geometry(),
+    scale: 100,
+    maxPixels: 1e13
+    });
+ 
+    var classAreas = ee.List(areas.get('groups'));
+    var classAreaLists = classAreas.map(function(item) {
+      var areaDict = ee.Dictionary(item);
+      var classNumber = ee.Number(
+        areaDict.get('lossyear')).format();
+      var area = ee.Number(
+        areaDict.get('sum')).divide(1e6).divide(1e2).round(); //divide(1e6) == km2, divide(1e2) = scale factor 0.01
+      return ee.List([classNumber, area]);
+    });
+ 
+    var result = ee.Dictionary(classAreaLists.flatten());
+    //var district = feature.get('ID_1');
+    var district = feature.get('CNTRY_NAME');
+    //var district = feature.get('ID'); // for half grid calculations
+    
+    return ee.Feature(
+      feature.geometry(),
+      result.set('Country', district));
+};
+ 
+
+var districtAreas = amazon_country.map(calculateClassArea); // 
+
+var lossyear = ee.List.sequence(2001, 2019);
+var outputFields = ee.List(['Country']).cat(lossyear).getInfo();
+
+Export.table.toDrive({
+    collection: districtAreas,
+    description: 'Newly_burned_by_country',
+    folder: 'Amazon_output2_activefire',
+    fileNamePrefix: 'Newly_burned_by_country_af80',
+    fileFormat: 'CSV',
+    selectors: outputFields
+    });
+    
+
